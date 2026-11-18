@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PathSnap - Route Reconstruction</title>
+    <meta charset="UTF-8">
+
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet/dist/leaflet.css">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            text-align: center;
+            background: #f4f4f4;
+        }
+
+        h1 {
+            margin: 20px;
+        }
+
+        #status {
+            margin: 10px;
+        }
+
+        #map {
+            height: 75vh;
+            width: 90%;
+            margin: auto;
+            border: 2px solid #333;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>PathSnap - GPS Route Reconstruction</h1>
+
+    <p id="status">Loading route...</p>
+
+    <button onclick="loadRoute()">Load Route</button>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+        const map = L.map('map').setView([20, 78], 5);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let routeLine;
+
+        async function loadRoute() {
+            document.getElementById("status").innerText =
+                "Fetching reconstructed route...";
+
+            try {
+                const response = await fetch(
+                    "http://127.0.0.1:8000/route"
+                );
+
+                const data = await response.json();
+
+                if (!data.route || data.route.length === 0) {
+                    throw new Error("No route data available");
+                }
+
+                const coordinates = data.route.map(point => [
+                    point.matched_latitude,
+                    point.matched_longitude
+                ]);
+
+                if (routeLine) {
+                    map.removeLayer(routeLine);
+                }
+
+                routeLine = L.polyline(coordinates, {
+                    color: "blue",
+                    weight: 4
+                }).addTo(map);
+
+                map.fitBounds(routeLine.getBounds());
+
+                L.marker(coordinates[0])
+                    .addTo(map)
+                    .bindPopup("Start");
+
+                L.marker(coordinates[coordinates.length - 1])
+                    .addTo(map)
+                    .bindPopup("End");
+
+                document.getElementById("status").innerText =
+                    "Route loaded successfully! Total points: " +
+                    data.total_points;
+
+            } catch (error) {
+                document.getElementById("status").innerText =
+                    "Error: " + error.message;
+            }
+        }
+
+        loadRoute();
+    </script>
+
+</body>
+</html>
